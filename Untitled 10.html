@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>美股涨幅排名追踪器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #34495e;
+            font-size: 0.9em;
+        }
+
+        select, input, button {
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #c33;
+        }
+
+        .success {
+            background: #e8f8e8;
+            color: #2a7f2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2a7f2a;
+        }
+
+        .results {
+            display: grid;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .date-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .date-title {
+            font-size: 1.4em;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .stock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .stock-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .stock-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .rank {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .symbol {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .company-name {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .price-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .price {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .change {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 20px;
+            color: white;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
+        }
+
+        .volume {
+            font-size: 0.8em;
+            color: #95a5a6;
+        }
+
+        .summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .summary h3 {
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .api-config {
+            background: #f0f4ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px dashed #667eea;
+        }
+
+        .api-config h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .api-config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .api-status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 5px;
+        }
+
+        .api-status.active {
+            background: #27ae60;
+        }
+
+        .api-status.inactive {
+            background: #e74c3c;
+        }
+
+        .api-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .api-info h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .api-info ul {
+            color: #5a6c7d;
+            line-height: 1.6;
+        }
+
+        .api-info li {
+            margin-bottom: 8px;
+        }
+
+        .data-source-tag {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .stock-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📈 美股涨幅排名追踪器</h1>
+        
+        <!-- API配置区域 -->
+        <div class="api-config">
+            <h3>⚙️ API配置（可选 - 用于获取真实数据）</h3>
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">
+                输入API密钥后可获取真实股票数据。留空将使用模拟数据。
+                <a href="#api-guide" style="color: #667eea;">获取免费API密钥指南 ↓</a>
+            </p>
+            <div class="api-config-grid">
+                <div class="control-group">
+                    <label for="alphaVantageKey">
+                        Alpha Vantage API Key
+                        <span class="api-status" id="alphaStatus"></span>
+                    </label>
+                    <input type="text" id="alphaVantageKey" placeholder="输入API密钥或使用'demo'">
+                </div>
+                <div class="control-group">
+                    <label for="finnhubKey">
+                        Finnhub API Key
+                        <span class="api-status" id="finnhubStatus"></span>
+                    </label>
+                    <input type="text" id="finnhubKey" placeholder="输入API密钥">
+                </div>
+                <div class="control-group">
+                    <label for="polygonKey">
+                        Polygon.io API Key
+                        <span class="api-status" id="polygonStatus"></span>
+                    </label>
+                    <input type="text" id="polygonKey" placeholder="输入API密钥">
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="period">时间周期</label>
+                <select id="period">
+                    <option value="day">当日</option>
+                    <option value="week" selected>本周</option>
+                    <option value="month">本月</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="topN">显示前N名</label>
+                <input type="number" id="topN" min="1" max="50" value="10">
+            </div>
+            
+            <div class="control-group">
+                <label for="minPrice">最低价格过滤</label>
+                <input type="number" id="minPrice" min="0" step="0.01" value="0.1" placeholder="最低价格">
+            </div>
+            
+            <button id="searchBtn">🔍 获取实时数据</button>
+            <button id="refreshBtn">🔄 刷新数据</button>
+            <button id="generateCodeBtn">📋 生成Python代码</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div>正在获取数据...</div>
+            <div style="margin-top: 10px; font-size: 14px;">尝试连接真实API中...</div>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="success" class="success" style="display: none;"></div>
+        
+        <div id="results" class="results"></div>
+
+        <div class="api-info" id="api-guide">
+            <h3>📊 如何获取免费API密钥</h3>
+            <ol style="line-height: 1.8;">
+                <li><strong>Alpha Vantage (推荐)</strong>
+                    <ul>
+                        <li>访问: <a href="https://www.alphavantage.co/support/#api-key" target="_blank">https://www.alphavantage.co</a></li>
+                        <li>免费注册即可获得API密钥</li>
+                        <li>支持获取市场涨跌幅榜单</li>
+                    </ul>
+                </li>
+                <li><strong>Finnhub</strong>
+                    <ul>
+                        <li>访问: <a href="https://finnhub.io/" target="_blank">https://finnhub.io</a></li>
+                        <li>免费计划每分钟60次请求</li>
+                        <li>实时股票报价数据</li>
+                    </ul>
+                </li>
+                <li><strong>Polygon.io</strong>
+                    <ul>
+                        <li>访问: <a href="https://polygon.io/" target="_blank">https://polygon.io</a></li>
+                        <li>免费计划每分钟5次请求</li>
+                        <li>高质量金融数据</li>
+                    </ul>
+                </li>
+            </ol>
+            <div style="margin-top: 15px; padding: 10px; background: #e8f4f8; border-radius: 5px;">
+                <strong>💡 提示:</strong> 如果不配置API密钥，系统将使用基于市场模型的模拟数据。
+                模拟数据基于真实股票的历史波动性和趋势生成。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 热门股票列表（用于数据获取）
+        const popularStocks = [
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'NFLX', 'AMD', 'INTC',
+            'ORCL', 'CRM', 'ADBE', 'PYPL', 'CMCSA', 'AVGO', 'TXN', 'COST', 'QCOM', 'TMUS',
+            'ABNB', 'UBER', 'LYFT', 'ROKU', 'SQ', 'SHOP', 'ZOOM', 'DOCU', 'CRWD', 'OKTA',
+            'PLTR', 'SNOW', 'DDOG', 'ZM', 'SPOT', 'TWLO', 'PINS', 'SNAP', 'BABA', 'JD',
+            'COIN', 'HOOD', 'SOFI', 'UPST', 'AFRM', 'RBLX', 'RIVN', 'LCID', 'NKLA', 'SPCE'
+        ];
+
+        // API配置管理
+        const apiConfig = {
+            alphaVantage: { key: '', status: false },
+            finnhub: { key: '', status: false },
+            polygon: { key: '', status: false }
+        };
+
+        // 保存和加载API密钥
+        function saveApiKeys() {
+            apiConfig.alphaVantage.key = document.getElementById('alphaVantageKey').value;
+            apiConfig.finnhub.key = document.getElementById('finnhubKey').value;
+            apiConfig.polygon.key = document.getElementById('polygonKey').value;
+            
+            // 保存到localStorage
+            localStorage.setItem('stockTrackerApiKeys', JSON.stringify({
+                alphaVantage: apiConfig.alphaVantage.key,
+                finnhub: apiConfig.finnhub.key,
+                polygon: apiConfig.polygon.key
+            }));
+            
+            updateApiStatus();
+        }
+
+        function loadApiKeys() {
+            const saved = localStorage.getItem('stockTrackerApiKeys');
+            if (saved) {
+                const keys = JSON.parse(saved);
+                document.getElementById('alphaVantageKey').value = keys.alphaVantage || '';
+                document.getElementById('finnhubKey').value = keys.finnhub || '';
+                document.getElementById('polygonKey').value = keys.polygon || '';
+                
+                apiConfig.alphaVantage.key = keys.alphaVantage || '';
+                apiConfig.finnhub.key = keys.finnhub || '';
+                apiConfig.polygon.key = keys.polygon || '';
+            }
+            updateApiStatus();
+        }
+
+        function updateApiStatus() {
+            const alphaStatus = document.getElementById('alphaStatus');
+            const finnhubStatus = document.getElementById('finnhubStatus');
+            const polygonStatus = document.getElementById('polygonStatus');
+            
+            alphaStatus.className = 'api-status ' + (apiConfig.alphaVantage.key ? 'active' : 'inactive');
+            finnhubStatus.className = 'api-status ' + (apiConfig.finnhub.key ? 'active' : 'inactive');
+            polygonStatus.className = 'api-status ' + (apiConfig.polygon.key ? 'active' : 'inactive');
+        }
+
+        // 获取股票数据 - 支持真实API和模拟数据
+        async function fetchStockData(symbols, period = 'day') {
+            let results = [];
+            let dataSource = 'mock';
+            
+            // 保存当前的API配置
+            saveApiKeys();
+            
+            // 尝试使用Alpha Vantage API
+            if (apiConfig.alphaVantage.key && apiConfig.alphaVantage.key !== '') {
+                try {
+                    const response = await fetch(
+                        `https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${apiConfig.alphaVantage.key}`
+                    );
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.top_gainers && !data.Note && !data.Information) {
+                            results = data.top_gainers.map(stock => ({
+                                symbol: stock.ticker,
+                                company: stock.company_name || getCompanyName(stock.ticker),
+                                price: parseFloat(stock.price),
+                                change: parseFloat(stock.change_percentage.replace('%', '')),
+                                volume: parseInt(stock.volume),
+                                currency: 'USD',
+                                lastUpdate: new Date().toISOString()
+                            }));
+                            dataSource = 'Alpha Vantage';
+                            showSuccess(`成功从 ${dataSource} 获取真实数据！`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Alpha Vantage API错误:', error);
+                }
+            }
+            
+            // 如果Alpha Vantage失败，尝试Finnhub
+            if (results.length === 0 && apiConfig.finnhub.key) {
+                try {
+                    // 获取市场符号
+                    const symbolsResponse = await fetch(
+                        `https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${apiConfig.finnhub.key}`
+                    );
+                    
+                    if (symbolsResponse.ok) {
+                        const allSymbols = await symbolsResponse.json();
+                        const targetSymbols = symbols.slice(0, 20); // 限制数量
+                        
+                        for (const symbol of targetSymbols) {
+                            try {
+                                const quoteResponse = await fetch(
+                                    `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiConfig.finnhub.key}`
+                                );
+                                
+                                if (quoteResponse.ok) {
+                                    const quote = await quoteResponse.json();
+                                    if (quote.dp && quote.dp > 0) {
+                                        results.push({
+                                            symbol: symbol,
+                                            company: getCompanyName(symbol),
+                                            price: quote.c,
+                                            change: quote.dp,
+                                            volume: quote.v || 0,
+                                            currency: 'USD',
+                                            lastUpdate: new Date(quote.t * 1000).toISOString()
+                                        });
+                                    }
+                                }
+                            } catch (err) {
+                                continue;
+                            }
+                        }
+                        
+                        if (results.length > 0) {
+                            dataSource = 'Finnhub';
+                            showSuccess(`成功从 ${dataSource} 获取真实数据！`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Finnhub API错误:', error);
+                }
+            }
+            
+            // 如果都失败了，使用模拟数据
+            if (results.length === 0) {
+                console.log('使用模拟数据');
+                results = await generateRealisticMockData(symbols, period);
+                if (apiConfig.alphaVantage.key || apiConfig.finnhub.key || apiConfig.polygon.key) {
+                    showError('无法获取真实数据，显示模拟数据。请检查API密钥是否正确。');
+                }
+            }
+            
+            // 按涨幅排序
+            results.sort((a, b) => b.change - a.change);
+            
+            // 添加数据源标记
+            results = results.map(stock => ({
+                ...stock,
+                dataSource: dataSource
+            }));
+            
+            return results;
+        }
+
+        // 生成真实感的模拟数据
+        async function generateRealisticMockData(symbols, period) {
+            // 基于真实股票的历史表现生成模拟数据
+            const stockProfiles = {
+                'AAPL': { basePrice: 190, volatility: 0.02, trend: 0.001 },
+                'MSFT': { basePrice: 420, volatility: 0.018, trend: 0.0008 },
+                'GOOGL': { basePrice: 140, volatility: 0.025, trend: 0.0005 },
+                'AMZN': { basePrice: 180, volatility: 0.03, trend: 0.0003 },
+                'NVDA': { basePrice: 880, volatility: 0.04, trend: 0.002 },
+                'TSLA': { basePrice: 250, volatility: 0.05, trend: 0.0015 },
+                'META': { basePrice: 480, volatility: 0.035, trend: 0.0007 },
+                'NFLX': { basePrice: 600, volatility: 0.03, trend: 0.0002 },
+                'AMD': { basePrice: 160, volatility: 0.04, trend: 0.0012 },
+                'INTC': { basePrice: 45, volatility: 0.025, trend: -0.0002 }
+            };
+
+            const results = [];
+            
+            // 添加延迟模拟API调用
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            for (const symbol of symbols.slice(0, 20)) { // 限制数量
+                const profile = stockProfiles[symbol] || {
+                    basePrice: Math.random() * 500 + 50,
+                    volatility: Math.random() * 0.03 + 0.01,
+                    trend: (Math.random() - 0.5) * 0.002
+                };
+                
+                // 生成价格变化
+                const periodMultiplier = period === 'day' ? 1 : period === 'week' ? 7 : 30;
+                const randomFactor = (Math.random() - 0.5) * 2;
+                const trendFactor = profile.trend * periodMultiplier;
+                const volatilityFactor = profile.volatility * Math.sqrt(periodMultiplier) * randomFactor;
+                
+                const changePercent = (trendFactor + volatilityFactor) * 100;
+                const currentPrice = profile.basePrice * (1 + changePercent / 100);
+                
+                // 只返回上涨的股票
+                if (changePercent > 0) {
+                    results.push({
+                        symbol: symbol,
+                        company: getCompanyName(symbol),
+                        price: currentPrice,
+                        change: changePercent,
+                        volume: Math.floor(Math.random() * 50000000) + 1000000,
+                        currency: 'USD',
+                        lastUpdate: new Date().toISOString()
+                    });
+                }
+            }
+            
+            return results.sort((a, b) => b.change - a.change);
+        }
+
+        // 获取公司名称
+        function getCompanyName(symbol) {
+            const companies = {
+                'AAPL': 'Apple Inc.',
+                'MSFT': 'Microsoft Corporation',
+                'GOOGL': 'Alphabet Inc.',
+                'AMZN': 'Amazon.com Inc.',
+                'NVDA': 'NVIDIA Corporation',
+                'TSLA': 'Tesla Inc.',
+                'META': 'Meta Platforms Inc.',
+                'NFLX': 'Netflix Inc.',
+                'AMD': 'Advanced Micro Devices Inc.',
+                'INTC': 'Intel Corporation',
+                'ORCL': 'Oracle Corporation',
+                'CRM': 'Salesforce Inc.',
+                'ADBE': 'Adobe Inc.',
+                'PYPL': 'PayPal Holdings Inc.',
+                'CMCSA': 'Comcast Corporation',
+                'AVGO': 'Broadcom Inc.',
+                'TXN': 'Texas Instruments Inc.',
+                'COST': 'Costco Wholesale Corporation',
+                'QCOM': 'Qualcomm Inc.',
+                'TMUS': 'T-Mobile US Inc.'
+            };
+            return companies[symbol] || `${symbol} Corporation`;
+        }
+
+        // 获取实时股票数据
+        async function getRealTimeStockData(period = 'day', minPrice = 0.1) {
+            try {
+                const data = await fetchStockData(popularStocks, period);
+                
+                // 过滤和排序
+                const filteredData = data
+                    .filter(stock => stock && stock.price >= minPrice && stock.change > 0)
+                    .sort((a, b) => b.change - a.change);
+                
+                return filteredData;
+            } catch (error) {
+                console.error('获取实时数据失败:', error);
+                throw error;
+            }
+        }
+
+        const elements = {
+            searchBtn: document.getElementById('searchBtn'),
+            refreshBtn: document.getElementById('refreshBtn'),
+            generateCodeBtn: document.getElementById('generateCodeBtn'),
+            period: document.getElementById('period'),
+            topN: document.getElementById('topN'),
+            minPrice: document.getElementById('minPrice'),
+            loading: document.getElementById('loading'),
+            error: document.getElementById('error'),
+            success: document.getElementById('success'),
+            results: document.getElementById('results')
+        };
+
+        function showLoading() {
+            elements.loading.style.display = 'block';
+            elements.error.style.display = 'none';
+            elements.success.style.display = 'none';
+            elements.results.innerHTML = '';
+            elements.searchBtn.disabled = true;
+        }
+
+        function hideLoading() {
+            elements.loading.style.display = 'none';
+            elements.searchBtn.disabled = false;
+        }
+
+        function showError(message) {
+            elements.error.textContent = message;
+            elements.error.style.display = 'block';
+            elements.success.style.display = 'none';
+            hideLoading();
+        }
+
+        function showSuccess(message) {
+            elements.success.textContent = message;
+            elements.success.style.display = 'block';
+            elements.error.style.display = 'none';
+        }
+
+        function formatVolume(volume) {
+            if (volume >= 1000000) {
+                return (volume / 1000000).toFixed(1) + 'M';
+            } else if (volume >= 1000) {
+                return (volume / 1000).toFixed(1) + 'K';
+            }
+            return volume.toString();
+        }
+
+        function formatPrice(price) {
+            return '$' + price.toFixed(2);
+        }
+
+        function createStockCard(stock, index) {
+            const changeColor = stock.change > 0 ? '#27ae60' : '#e74c3c';
+            const changeIcon = stock.change > 0 ? '📈' : '📉';
+            const dataSourceTag = stock.dataSource !== 'mock' ? `<div class="data-source-tag">真实数据</div>` : '';
+            
+            return `
+                <div class="stock-card">
+                    ${dataSourceTag}
+                    <div class="rank">${index + 1}</div>
+                    <div class="symbol">${stock.symbol}</div>
+                    <div class="company-name">${stock.company}</div>
+                    <div class="price-info">
+                        <div class="price">${formatPrice(stock.price)}</div>
+                        <div class="change" style="background: ${changeColor};">
+                            ${changeIcon} ${stock.change > 0 ? '+' : ''}${stock.change.toFixed(2)}%
+                        </div>
+                    </div>
+                    <div class="volume">成交量: ${formatVolume(stock.volume)}</div>
+                    <div class="volume" style="margin-top: 5px; font-size: 0.7em;">
+                        货币: ${stock.currency || 'USD'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayResults(data, period) {
+            const topN = parseInt(elements.topN.value);
+            const minPrice = parseFloat(elements.minPrice.value);
+            
+            // 过滤和排序数据
+            let filteredData = data.filter(stock => stock.price >= minPrice);
+            filteredData = filteredData.slice(0, topN);
+            
+            if (filteredData.length === 0) {
+                showError('没有找到符合条件的股票数据');
+                return;
+            }
+
+            const periodNames = {
+                day: '今日',
+                week: '本周',
+                month: '本月'
+            };
+
+            const resultsHTML = `
+                <div class="summary">
+                    <h3>${periodNames[period]}涨幅前${topN}名股票</h3>
+                    <p>已过滤价格低于$${minPrice.toFixed(2)}的股票</p>
+                </div>
+                <div class="date-section">
+                    <div class="date-title">${periodNames[period]}涨幅排行榜</div>
+                    <div class="stock-grid">
+                        ${filteredData.map((stock, index) => createStockCard(stock, index)).join('')}
+                    </div>
+                </div>
+            `;
+
+            elements.results.innerHTML = resultsHTML;
+        }
+
+        async function searchStocks() {
+            showLoading();
+            
+            try {
+                const period = elements.period.value;
+                const minPrice = parseFloat(elements.minPrice.value) || 0.1;
+                
+                // 更新加载状态
+                elements.loading.innerHTML = `
+                    <div>正在获取股票数据...</div>
+                    <div style="margin-top: 10px; font-size: 14px;">尝试连接API服务...</div>
+                `;
+                
+                // 获取数据
+                const data = await getRealTimeStockData(period, minPrice);
+                
+                if (data && data.length > 0) {
+                    displayResults(data, period);
+                } else {
+                    showError('未找到符合条件的股票数据，请尝试调整筛选条件');
+                }
+                
+            } catch (error) {
+                console.error('搜索失败:', error);
+                showError('获取数据失败，请稍后重试');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function generatePythonCode() {
+            const period = elements.period.value;
+            const topN = elements.topN.value;
+            const minPrice = elements.minPrice.value;
+            
+            const code = `
+import yfinance as yf
+import pandas as pd
+import requests
+from datetime import datetime, timedelta
+import json
+
+def get_stock_gainers(period='${period}', top_n=${topN}, min_price=${minPrice}):
+    """
+    获取美股涨幅排名前N的股票
+    
+    参数:
+    period: 时间周期 ('day', 'week', 'month')
+    top_n: 返回前N名股票
+    min_price: 最低价格过滤
+    """
+    
+    # 方法1: 使用Yahoo Finance API
+    def get_yahoo_gainers():
+        import yfinance as yf
+        
+        # 获取标普500成分股
+        sp500 = pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')[0]
+        symbols = sp500['Symbol'].tolist()
+        
+        gainers = []
+        for symbol in symbols[:100]:  # 限制数量避免请求过多
+            try:
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period='5d')
+                if len(hist) >= 2:
+                    current_price = hist['Close'].iloc[-1]
+                    if current_price >= min_price:
+                        if period == 'day':
+                            prev_price = hist['Close'].iloc[-2]
+                        elif period == 'week':
+                            prev_price = hist['Close'].iloc[0]
+                        else:  # month
+                            hist_month = stock.history(period='1mo')
+                            prev_price = hist_month['Close'].iloc[0]
+                        
+                        change_pct = ((current_price - prev_price) / prev_price) * 100
+                        if change_pct > 0:
+                            gainers.append({
+                                'symbol': symbol,
+                                'price': current_price,
+                                'change': change_pct,
+                                'volume': hist['Volume'].iloc[-1]
+                            })
+            except Exception as e:
+                continue
+        
+        return sorted(gainers, key=lambda x: x['change'], reverse=True)[:top_n]
+    
+    # 方法2: 使用Alpha Vantage API
+    def get_alpha_vantage_gainers():
+        API_KEY = '${apiConfig.alphaVantage.key || 'YOUR_API_KEY'}'  # 需要申请API密钥
+        url = f'https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey={API_KEY}'
+        
+        try:
+            response = requests.get(url)
+            data = response.json()
+            
+            gainers = []
+            for item in data.get('top_gainers', []):
+                price = float(item['price'])
+                if price >= min_price:
+                    gainers.append({
+                        'symbol': item['ticker'],
+                        'price': price,
+                        'change': float(item['change_percentage'].replace('%', '')),
+                        'volume': int(item['volume'])
+                    })
+            
+            return gainers[:top_n]
+        except Exception as e:
+            print(f"Alpha Vantage API错误: {e}")
+            return []
+    
+    # 方法3: 使用Finnhub API
+    def get_finnhub_gainers():
+        API_KEY = '${apiConfig.finnhub.key || 'YOUR_FINNHUB_KEY'}'  # 需要申请API密钥
+        
+        # 获取美股符号
+        symbols_url = f'https://finnhub.io/api/v1/stock/symbol?exchange=US&token={API_KEY}'
+        
+        try:
+            response = requests.get(symbols_url)
+            symbols = response.json()[:100]  # 限制数量
+            
+            gainers = []
+            for symbol_info in symbols:
+                symbol = symbol_info['symbol']
+                quote_url = f'https://finnhub.io/api/v1/quote?symbol={symbol}&token={API_KEY}'
+                
+                try:
+                    quote_response = requests.get(quote_url)
+                    quote = quote_response.json()
+                    
+                    if quote['dp'] > 0 and quote['c'] >= min_price:
+                        gainers.append({
+                            'symbol': symbol,
+                            'price': quote['c'],
+                            'change': quote['dp'],
+                            'volume': quote.get('v', 0)
+                        })
+                except:
+                    continue
+            
+            return sorted(gainers, key=lambda x: x['change'], reverse=True)[:top_n]
+        except Exception as e:
+            print(f"Finnhub API错误: {e}")
+            return []
+    
+    # 尝试获取数据
+    try:
+        # 优先使用Yahoo Finance
+        gainers = get_yahoo_gainers()
+        if not gainers:
+            # 备用Alpha Vantage
+            gainers = get_alpha_vantage_gainers()
+        if not gainers:
+            # 备用Finnhub
+            gainers = get_finnhub_gainers()
+        
+        return gainers
+    except Exception as e:
+        print(f"获取数据失败: {e}")
+        return []
+
+# 使用示例
+if __name__ == "__main__":
+    print("正在获取美股涨幅排名...")
+    gainers = get_stock_gainers()
+    
+    if gainers:
+        print(f"\\n{'='*60}")
+        print(f"{'排名':<4} {'股票代码':<8} {'当前价格':<12} {'涨幅':<12} {'成交量':<15}")
+        print(f"{'='*60}")
+        
+        for i, stock in enumerate(gainers, 1):
+            print(f"{i:<4} {stock['symbol']:<8} ${stock['price']:<11.2f} {stock['change']:<11.2f}% {stock['volume']:,}")
+    else:
+        print("未能获取到数据，请检查API配置")
+
+# 定时执行版本
+import schedule
+import time
+
+def job():
+    print(f"\\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 开始获取股票数据...")
+    gainers = get_stock_gainers()
+    
+    if gainers:
+        # 保存到CSV文件
+        df = pd.DataFrame(gainers)
+        filename = f"stock_gainers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        df.to_csv(filename, index=False)
+        print(f"数据已保存到: {filename}")
+        
+        # 打印结果
+        for i, stock in enumerate(gainers, 1):
+            print(f"{i}. {stock['symbol']}: +{stock['change']:.2f}% (${stock['price']:.2f})")
+
+# 每小时执行一次
+schedule.every().hour.do(job)
+
+# 运行调度器
+# while True:
+#     schedule.run_pending()
+#     time.sleep(1)
+`;
+
+            // 创建并下载代码文件
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'stock_gainers_tracker.py';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('Python代码已生成并下载！\\n\\n代码包含三种API获取方式：\\n1. Yahoo Finance (免费)\\n2. Alpha Vantage (需要API密钥)\\n3. Finnhub (需要API密钥)\\n\\n代码中已包含您配置的API密钥（如果有）');
+        }
+
+        // 事件监听
+        elements.searchBtn.addEventListener('click', searchStocks);
+        elements.refreshBtn.addEventListener('click', searchStocks);
+        elements.generateCodeBtn.addEventListener('click', generatePythonCode);
+
+        // API输入框事件
+        document.getElementById('alphaVantageKey').addEventListener('change', saveApiKeys);
+        document.getElementById('finnhubKey').addEventListener('change', saveApiKeys);
+        document.getElementById('polygonKey').addEventListener('change', saveApiKeys);
+
+        // 添加快捷键支持
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                searchStocks();
+            }
+        });
+
+        // 页面加载时加载保存的API密钥并自动获取数据
+        window.addEventListener('load', () => {
+            loadApiKeys();
+            setTimeout(searchStocks, 500);
+        });
+    </script>
+</body>
+</html>
